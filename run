@@ -1,0 +1,22 @@
+#!/bin/bash
+
+mkdir -p .cache
+mkdir -p .config
+
+docker run -ti \
+    --rm \
+    --runtime=nvidia \
+    -v $(pwd)/.cache:/home/tmb/.cache \
+    -v /etc/passwd:/etc/passwd \
+    -v /etc/shadow:/etc/shadow \
+    -v /etc/group:/etc/group \
+    -v /etc/sudoers:/etc/sudoers \
+    -u "$(id -u):$(id -g)" \
+    -v /tmp/.X11-unix:/tmp/.X11-unix \
+    -v "$HOME:$HOME" \
+    -w "$(pwd)" \
+    --net host \
+    --ipc host \
+    -e DISPLAY="$DISPLAY" \
+    vidprep \
+    "$@"
