@@ -1,14 +1,14 @@
 #!/bin/bash
+set -e
 ls -l sample.mp4
 
 # get mp4 metadata (total length, etc.)
 ffprobe sample.mp4 -v quiet -print_format json -show_format -show_streams > sample.mp4.json
 
 # perform the rescaling and splitting
-ffmpeg -i sample.mp4 \
+ffmpeg -loglevel error -stats -i sample.mp4 \
     -vf "scale=512:256:force_original_aspect_ratio=decrease,pad=512:256:(ow-iw)/2:(oh-ih)/2" \
-    -c:a copy \
-    -f segment -segment_time 31 -reset_timestamps 1  \
+    -c:a copy -f segment -segment_time 31 -reset_timestamps 1  \
     -segment_format_options movflags=+faststart \
     sample-%06d.mp4
 
@@ -16,8 +16,5 @@ ffmpeg -i sample.mp4 \
 for s in sample-??????.mp4; do
     b=$(basename $s .mp4)
     cp sample.mp4.json $b.mp4.json
-    cp sample.description $b.description
     cp sample.info.json $b.info.json
-    cp sample.annotations.xml $b.annotations.xml
-    cp sample.txt $b.txt
 done

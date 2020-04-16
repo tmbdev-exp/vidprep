@@ -36,3 +36,5 @@ RUN apt-get install -qqy libczmq-dev libsodium-dev
 
 #RUN pip3 install git+git://github.com/tmbdev/tarproc
 RUN pip3 install git+git://github.com/tmbdev/webdataset
+
+RUN apt-get install -qqy curl
