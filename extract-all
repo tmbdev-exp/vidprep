@@ -1,0 +1,6 @@
+#!/bin/bash
+
+test -f testshard.tar ||
+    curl http://storage.googleapis.com/lpr-yt8m-lo-sharded/yt8m-lo-002999.tar | 
+        tarp cat - -o testshard.tar --end=3
+tarp proc  -m $(pwd)/extract-segments testshard.tar -o testoutput.tar
