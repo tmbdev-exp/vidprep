@@ -114,6 +114,10 @@ docker run -ti \
     "$@"
 ;;
 
+getk9s) # get the k9s monitoring program
+curl -L https://github.com/derailed/k9s/releases/download/v0.19.2/k9s_Linux_x86_64.tar.gz | tar -zxvf - k9s
+chmod 755 ./k9s
+;;
 
 "")
 echo
