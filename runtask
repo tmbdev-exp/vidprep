@@ -1,0 +1,133 @@
+#!/bin/bash
+
+set -e
+
+cluster="tmb-cluster"
+nodes=128
+cores=32
+zone="us-west1-b"
+project="research-191823"
+scopes="default,storage-rw,compute-ro"
+gkeflags="--enable-basic-auth --no-enable-autoupgrade --enable-ip-alias"
+gkeflags="$gkeflags --cluster-ipv4-cidr 10.0.0.0/10 --max-pods-per-node=64"
+image=vidprep
+remote=gcr.io/$project/$image
+
+case $1 in
+
+test) # run a test of the processing pipeline
+gsutil -m rm gs://lpr-yt8m-256/*.tar || true
+kubectl delete pods --all || true
+rm -f RUNPODS/*
+sed 's/--end=999999999/--end=4/' extract256.yml > _test_extract256.yml
+runpods _test_extract256.yml -b '{000000..000001}' -K kubectl --printspecs --nowait
+kubectl logs extract256-000001 -f
+;;
+
+short) # run the full vidprep pipelinle for just 10 shards
+gsutil -m rm gs://lpr-yt8m-256/*.tar || true
+kubectl delete pods --all || true
+rm -f RUNPODS/*
+runpods extract256.yml -b '{000000..000009}' -K kubectl
+;;
+
+more) # add all remaining jobs to the vidprep jobs
+runpods extract256.yml -b '{000000..002999}' -K kubectl
+;;
+
+full) # run the full vidprep pipelinle
+gsutil -m rm gs://lpr-yt8m-256/*.tar || true
+kubectl delete pods --all || true
+rm -f RUNPODS/*
+runpods extract256.yml -b '{000000..002999}' -K kubectl
+;;
+
+logs) # look at the logs for pod 0
+kubectl logs extract256-000000 | more
+;;
+
+stop) # delete all pods
+kubectl delete pods --all || true
+;;
+
+build) # build the container
+set -x
+docker build -t vidprep .
+docker tag vidprep $remote
+docker push $remote
+;;
+
+startcluster) # start the cluster
+gcloud config set project $project
+gcloud config set compute/zone $zone
+gcloud config set container/new_scopes_behavior true || true
+gcloud config set container/cluster $cluster
+gcloud auth list --filter=status:ACTIVE --format='value(account)'
+gcloud container clusters create $cluster $gkeflags \
+    --zone $zone --machine-type n1-standard-$cores \
+    --scopes $scopes --num-nodes $nodes
+;;
+
+stopcluster) # stop the cluster
+yes | gcloud container clusters delete $cluster || true
+;;
+
+lab) # run Jupyter lab in vidprep container locally
+docker run -ti \
+    --rm \
+    --runtime=nvidia \
+    -v /etc/passwd:/etc/passwd \
+    -v /etc/shadow:/etc/shadow \
+    -v /etc/group:/etc/group \
+    -v /etc/sudoers:/etc/sudoers \
+    -u "$(id -u):$(id -g)" \
+    -v /tmp/.X11-unix:/tmp/.X11-unix \
+    -v "$HOME:$HOME" \
+    -w "$(pwd)" \
+    --net host \
+    --ipc host \
+    -e DISPLAY="$DISPLAY" \
+    vidprep \
+    jupyter lab
+;;
+
+run) # run shell or command in vidprep container locally
+shift
+mkdir -p .cache
+mkdir -p .config
+docker run -ti \
+    --rm \
+    --runtime=nvidia \
+    -v $(pwd)/.cache:/home/tmb/.cache \
+    -v /etc/passwd:/etc/passwd \
+    -v /etc/shadow:/etc/shadow \
+    -v /etc/group:/etc/group \
+    -v /etc/sudoers:/etc/sudoers \
+    -u "$(id -u):$(id -g)" \
+    -v /tmp/.X11-unix:/tmp/.X11-unix \
+    -v "$HOME:$HOME" \
+    -w "$(pwd)" \
+    --net host \
+    --ipc host \
+    -e DISPLAY="$DISPLAY" \
+    vidprep \
+    "$@"
+;;
+
+
+"")
+echo
+echo available commands:
+echo
+grep '^[a-z]*)' $0 | sed 's/[)] *[#] */ -- /'
+;;
+
+*) # help
+echo "$1: unknown command"
+echo
+echo available commands:
+echo
+grep '^[a-z]*)' $0 | sed 's/[)] *[#] */ -- /'
+;;
+
+esac

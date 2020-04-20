@@ -1,20 +1,29 @@
 #!/bin/bash
+
+exec 1>&2
+
+ps auxw --sort -vsz | sed 5q
+
 set -e
-ls -l sample.mp4
+set -x
+
+export size=${size:-256:128}
+export duration=${duration:-31}
+export count=${count:-999999999}
 
 # get mp4 metadata (total length, etc.)
 ffprobe sample.mp4 -v quiet -print_format json -show_format -show_streams > sample.mp4.json
 
 # perform the rescaling and splitting
 ffmpeg -loglevel error -stats -i sample.mp4 \
-    -vf "scale=512:256:force_original_aspect_ratio=decrease,pad=512:256:(ow-iw)/2:(oh-ih)/2" \
-    -c:a copy -f segment -segment_time 31 -reset_timestamps 1  \
+    -vf "scale=$size:force_original_aspect_ratio=decrease,pad=$size:(ow-iw)/2:(oh-ih)/2" \
+    -c:a copy -f segment -segment_time $duration -reset_timestamps 1  \
     -segment_format_options movflags=+faststart \
     sample-%06d.mp4
 
 # copy the metadata into each video fragment
 for s in sample-??????.mp4; do
     b=$(basename $s .mp4)
-    cp sample.mp4.json $b.mp4.json
-    cp sample.info.json $b.info.json
+    cp sample.mp4.json $b.mp4.json || true
+    cp sample.info.json $b.info.json || true
 done
