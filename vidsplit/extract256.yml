@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "extract256-{{ index }}"
+  labels:
+    app: extract256
+spec:
+  containers:
+  - image: gcr.io/research-191823/vidprep
+    command:
+      - /bin/bash
+      - -c
+      - |
+        set -e
+        gsutil cat gs://lpr-yt8m-lo-sharded/yt8m-lo-{{ item }}.tar |
+        tarp proc --end=999999999 -m 'extract-segments' - -o - |
+        gsutil cp - gs://lpr-yt8m-256/yt8m-256-{{ item }}.tar
+    imagePullPolicy: Always
+    name: extract256
+    resources:
+      requests:
+        memory: 32G
+        cpu: 4000m
+      limits:
+        memory: 32G
+        cpu: 4000m
+  restartPolicy: Never
